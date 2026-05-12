@@ -334,6 +334,32 @@ class TestScoreCommand:
         assert captured['pats'] == [{'uid': _DEV_UID, 'hotkey': _DEV_HOTKEY, 'pat': 'ghp_injected'}]
 
 
+class TestProfileFlag:
+    def test_profile_writes_valid_pstats(self, runner, tmp_path):
+        """--profile PATH writes a valid pstats binary."""
+        import pstats
+
+        prof_file = tmp_path / 'run.prof'
+        with _multi_patch(_patch_pipeline(uid=_DEV_UID, miner_evaluation=miner_eval_factory(uid=_DEV_UID))):
+            result = runner.invoke(
+                cli, ['miner', 'score', '--profile', str(prof_file)], env={'GITTENSOR_MINER_PAT': 'ghp_d'}
+            )
+
+        assert result.exit_code == 0, result.output
+        assert prof_file.exists()
+        pstats.Stats(str(prof_file))
+        assert prof_file.stat().st_size > 0
+
+    def test_default_no_profile_side_effects(self, runner):
+        """Default invocation has no profile output."""
+        with _multi_patch(_patch_pipeline(uid=_DEV_UID, miner_evaluation=miner_eval_factory(uid=_DEV_UID))):
+            result = runner.invoke(cli, ['miner', 'score'], env={'GITTENSOR_MINER_PAT': 'ghp_d'})
+
+        assert result.exit_code == 0, result.output
+        assert 'pstats' not in result.output
+        assert 'pstats' not in (result.stderr or '')
+
+
 def _multi_patch(patches):
     """contextlib.ExitStack-style stack for a flat list of patch context managers."""
     import contextlib
